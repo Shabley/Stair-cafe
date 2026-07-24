@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>STAIR 스테어 커피</title>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   STAIR 스테어 커피 — 원두 큐레이션 & 주문 키오스크
+   디자인 토큰 : 이 블록의 값만 바꾸면 전체 색/글꼴이 바뀝니다.
+   ═══════════════════════════════════════════════════════════ */
+:root{
+  /* 색 — 따뜻한 카페 톤 */
+  --paper:      #F2EADB;   /* 배경(종이) */
+  --paper-2:    #E9DFCA;   /* 카드 배경 */
+  --paper-3:    #FBF7F0;   /* 밝은 카드 */
+  --ink:        #2A2118;   /* 본문 글자 (짙은 로스팅 브라운) */
+  --ink-soft:   #6B5C4B;   /* 보조 글자 */
+  --pine:       #1F3D31;   /* 짙은 상록 초록 — 구조/헤더 */
+  --pine-soft:  #3C6151;   /* 초록 보조 */
+  --amber:      #B0741C;   /* 강조 — 캐러멜 앰버 (가격/버튼) */
+  --amber-deep: #8A5A13;
+  --clay:       #8C5A3C;   /* 미디엄 로스트 브라운 */
+  --line:       #CFC0A5;   /* 구분선 */
+  --line-soft:  #E0D3B9;
+  --danger:     #97402E;
+
+  /* 글꼴 — 외부 폰트를 쓰지 않아 인터넷 없이도 동작합니다 */
+  --f-display: "AppleMyungjo","Nanum Myeongjo","Noto Serif KR","Songti SC",serif;
+  --f-body: -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;
+  --f-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+
+  /* 간격 */
+  --pad: 24px;
+  --r: 4px;       /* 모서리 — 아날로그 메뉴판 느낌으로 거의 각지게 */
+  --r-lg: 8px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;border:none;background:none}
+input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ─── 공통 부품 ─────────────────────────────────────────── */
+.mono{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.serif{font-family:var(--f-display)}
+.eyebrow{
+  font-family:var(--f-num);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.hr{height:1px;background:var(--line);border:0;margin:0}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:14px 22px;border-radius:var(--r);
+  background:var(--pine);color:var(--paper-3);
+  font-weight:600;letter-spacing:.01em;
+  transition:background .15s;
+}
+.btn:active{background:var(--pine-soft)}
+.btn.amber{background:var(--amber)}
+.btn.amber:active{background:var(--amber-deep)}
+.btn.ghost{background:transparent;color:var(--pine);border:1.5px solid var(--line)}
+.btn.ghost:active{background:var(--paper-2)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.lg{padding:18px 34px;font-size:18px}
+.btn.sm{padding:9px 14px;font-size:14px}
+
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:100px;
+  border:1.5px solid var(--line);background:transparent;
+  font-size:14px;color:var(--ink-soft);
+  transition:.12s;
+}
+.chip[aria-pressed="true"]{background:var(--pine);border-color:var(--pine);color:var(--paper-3)}
+.chip.note{border-style:dashed;color:var(--clay);border-color:var(--clay);pointer-events:none}
+
+.tag-soldout{
+  display:inline-block;padding:3px 9px;border-radius:2px;
+  background:var(--danger);color:#fff;font-size:11px;letter-spacing:.08em;font-weight:700;
+}
+
+/* ─── 레이아웃 ──────────────────────────────────────────── */
+#app{min-height:100%;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:40;
+  display:flex;align-items:center;gap:18px;
+  padding:14px var(--pad);
+  background:var(--pine);color:var(--paper-3);
+  padding-top:calc(14px + env(safe-area-inset-top));
+}
+.brand{display:flex;align-items:baseline;gap:10px;cursor:pointer;user-select:none}
+.brand b{font-family:var(--f-num);font-size:21px;letter-spacing:.36em;font-weight:600}
+.brand span{font-family:var(--f-display);font-size:13px;opacity:.72;letter-spacing:.12em}
+.nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.nav button{
+  padding:9px 16px;border-radius:100px;font-size:15px;
+  color:rgba(251,247,240,.72);transition:.12s;white-space:nowrap;
+}
+.nav button[aria-current="page"]{background:rgba(251,247,240,.14);color:var(--paper-3);font-weight:600}
+
+main{flex:1;padding:var(--pad);padding-bottom:130px;max-width:1400px;width:100%;margin:0 auto}
+.view{animation:fade .28s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+h1.page{font-family:var(--f-display);font-size:34px;line-height:1.25;margin:6px 0 4px;font-weight:400;letter-spacing:-.01em}
+p.page-sub{color:var(--ink-soft);margin:0 0 26px;font-size:15px}
+
+/* ─── 홈 ────────────────────────────────────────────────── */
+.hero{
+  border:1.5px solid var(--line);border-radius:var(--r-lg);
+  background:var(--paper-3);
+  padding:34px 32px;margin-bottom:22px;
+}
+.hero .eyebrow{margin-bottom:14px}
+.hero h2{
+  font-family:var(--f-display);font-weight:400;
+  font-size:clamp(24px,3.4vw,40px);line-height:1.4;margin:0;
+  letter-spacing:-.015em;
+}
+.hero .sig{margin-top:20px;display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:14px}
+.hero .sig::before{content:"";width:34px;height:1px;background:var(--clay)}
+
+.home-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:22px;align-items:start}
+@media (max-width:900px){.home-grid{grid-template-columns:1fr}}
+
+.pick{
+  border:1.5px solid var(--line);border-radius:var(--r-lg);overflow:hidden;
+  background:var(--paper-3);cursor:pointer;text-align:left;width:100%;display:block;
+}
+.pick-top{background:var(--pine);color:var(--paper-3);padding:11px 20px;display:flex;justify-content:space-between;align-items:center}
+.pick-top .eyebrow{color:rgba(251,247,240,.75)}
+.pick-body{padding:24px 22px}
+.pick-body h3{font-family:var(--f-display);font-weight:400;font-size:25px;margin:0 0 6px;line-height:1.35}
+.pick-body .head{color:var(--clay);font-size:15px;margin:0 0 16px}
+
+.info-card{border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);padding:22px}
+.info-card h4{margin:0 0 14px;font-size:14px;letter-spacing:.1em;color:var(--ink-soft);font-weight:600}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line-soft);font-size:15px}
+.kv:last-child{border-bottom:0}
+.kv b{font-family:var(--f-num);font-weight:600;letter-spacing:.04em}
+
+.quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:22px}
+.quick button{
+  border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper-3);
+  padding:20px 16px;text-align:left;transition:.14s;
+}
+.quick button:active{background:var(--paper-2);transform:translateY(1px)}
+.quick .q-t{font-family:var(--f-display);font-size:18px;display:block;margin-bottom:3px}
+.quick .q-d{font-size:13px;color:var(--ink-soft)}
+
+/* ─── 시그니처: 고도 계단 ───────────────────────────────── */
+.stair-wrap{
+  border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);
+  padding:22px 0 0;margin-bottom:24px;overflow:hidden;
+}
+.stair-head{padding:0 22px 16px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+.stair-head h3{font-family:var(--f-display);font-weight:400;font-size:21px;margin:0}
+.stair-head p{margin:4px 0 0;font-size:13.5px;color:var(--ink-soft);max-width:60ch}
+.stair-scroll{
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+  padding:0 22px 18px;
+}
+.stair{display:flex;align-items:flex-end;gap:3px;padding-top:8px}
+.step{
+  flex:0 0 152px;scroll-snap-align:center;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  text-align:left;position:relative;
+}
+.step .bar{
+  position:relative;width:100%;
+  background:linear-gradient(180deg,var(--amber) 0%,rgba(176,116,28,.16) 100%);
+  border-radius:2px 2px 0 0;transition:.16s;
+}
+.step .alt{
+  position:absolute;top:-19px;left:0;
+  font-family:var(--f-num);font-size:11.5px;color:var(--amber-deep);letter-spacing:.04em;white-space:nowrap;
+}
+.step .riser{
+  border:1.5px solid var(--line);border-bottom:none;
+  background:var(--paper-2);padding:13px 12px 15px;transition:.16s;
+}
+.step:active .riser{background:var(--paper)}
+.step:active .bar{filter:brightness(1.12)}
+.step .nm{font-family:var(--f-display);font-size:14.5px;line-height:1.42;display:block;height:4.26em;overflow:hidden;margin-bottom:9px}
+.step .pr{font-family:var(--f-num);font-size:14px;font-weight:600}
+.step .tread{height:8px;background:var(--pine)}
+.step.off .riser,.step.off .bar{opacity:.4}
+.stair-axis{
+  display:flex;justify-content:space-between;padding:10px 22px 16px;
+  border-top:1px solid var(--line-soft);
+  font-family:var(--f-num);font-size:11px;letter-spacing:.14em;color:var(--ink-soft);text-transform:uppercase;
+}
+
+/* ─── 원두 카드 그리드 ──────────────────────────────────── */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;align-items:center}
+.filters .lbl{font-size:12px;letter-spacing:.14em;color:var(--ink-soft);margin-right:4px;font-family:var(--f-num);text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px}
+.bean-card{
+  border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);
+  padding:20px;text-align:left;display:flex;flex-direction:column;gap:11px;
+  transition:.14s;min-height:220px;
+}
+.bean-card:active{background:var(--paper-2);transform:translateY(1px)}
+.bean-card.off{opacity:.5}
+.bean-card .row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.bean-card .origin{font-family:var(--f-num);font-size:11px;letter-spacing:.14em;color:var(--ink-soft);text-transform:uppercase}
+.bean-card h3{font-family:var(--f-display);font-weight:400;font-size:19.5px;margin:0;line-height:1.38}
+.bean-card .head{font-size:14px;color:var(--clay);margin:0}
+.bean-card .notes{font-size:13px;color:var(--ink-soft);margin-top:auto}
+.bean-card .price{font-family:var(--f-num);font-size:17px;font-weight:600;white-space:nowrap}
+.bars{display:flex;gap:3px;align-items:center}
+.bars i{width:14px;height:5px;background:var(--line);border-radius:1px;display:block}
+.bars i.on{background:var(--amber)}
+.bars em{font-style:normal;font-size:11px;color:var(--ink-soft);margin-right:5px;font-family:var(--f-num);letter-spacing:.08em}
+
+/* ─── 원두 상세 ─────────────────────────────────────────── */
+.detail{display:grid;grid-template-columns:1.25fr .95fr;gap:26px;align-items:start}
+@media (max-width:920px){.detail{grid-template-columns:1fr}}
+.back{margin-bottom:16px;display:inline-flex;align-items:center;gap:7px;color:var(--ink-soft);font-size:15px}
+.d-title{font-family:var(--f-display);font-weight:400;font-size:clamp(27px,3.6vw,42px);line-height:1.24;margin:0 0 10px;letter-spacing:-.015em}
+.d-head{font-size:17px;color:var(--clay);margin:0 0 22px}
+.meta{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:24px;
+}
+.meta div{background:var(--paper-3);padding:13px 14px}
+.meta dt{font-family:var(--f-num);font-size:10.5px;letter-spacing:.16em;color:var(--ink-soft);text-transform:uppercase;margin-bottom:5px}
+.meta dd{margin:0;font-size:15px;line-height:1.4}
+.block{margin-bottom:26px}
+.block h4{
+  font-size:12px;letter-spacing:.18em;color:var(--ink-soft);font-family:var(--f-num);
+  text-transform:uppercase;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line-soft);
+}
+.block p{margin:0 0 12px;font-size:16px;line-height:1.75}
+.when{list-style:none;padding:0;margin:0}
+.when li{padding:11px 0 11px 26px;border-bottom:1px dashed var(--line-soft);position:relative;font-size:15.5px}
+.when li:last-child{border-bottom:0}
+.when li::before{content:"";position:absolute;left:6px;top:19px;width:7px;height:7px;background:var(--amber);border-radius:50%}
+
+.owner{
+  border:1.5px solid var(--pine);border-radius:var(--r-lg);
+  background:var(--pine);color:var(--paper-3);padding:24px 26px;margin-bottom:26px;
+}
+.owner .eyebrow{color:rgba(251,247,240,.7);margin-bottom:12px}
+.owner p{font-family:var(--f-display);font-size:19px;line-height:1.7;margin:0;white-space:pre-wrap}
+.owner .who{margin-top:14px;font-size:13px;opacity:.7;font-family:var(--f-body)}
+
+.radar-card{border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);padding:24px;margin-bottom:18px}
+.radar-card h4{margin:0 0 4px;font-size:12px;letter-spacing:.18em;font-family:var(--f-num);color:var(--ink-soft);text-transform:uppercase}
+.radar-card .cap{font-size:13px;color:var(--ink-soft);margin:0 0 10px}
+svg.radar{display:block;width:100%;height:auto}
+
+/* ─── 옵션 / 담기 ───────────────────────────────────────── */
+.order-box{border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);padding:22px;position:sticky;top:96px}
+.opt{margin-bottom:18px}
+.opt .lbl{font-family:var(--f-num);font-size:11px;letter-spacing:.16em;color:var(--ink-soft);text-transform:uppercase;display:block;margin-bottom:9px}
+.opt-row{display:flex;gap:8px;flex-wrap:wrap}
+.qty{display:flex;align-items:center;gap:0;border:1.5px solid var(--line);border-radius:var(--r);overflow:hidden;width:fit-content}
+.qty button{width:46px;height:46px;font-size:22px;background:var(--paper-2);color:var(--pine)}
+.qty button:active{background:var(--line-soft)}
+.qty span{width:56px;text-align:center;font-family:var(--f-num);font-size:18px;font-weight:600}
+.total-line{display:flex;justify-content:space-between;align-items:baseline;padding:16px 0;border-top:1.5px solid var(--line);margin-top:6px}
+.total-line b{font-family:var(--f-num);font-size:26px;font-weight:600}
+.hint{font-size:13px;color:var(--ink-soft);margin:10px 0 0;line-height:1.6}
+
+/* ─── 기타 메뉴 ─────────────────────────────────────────── */
+.cat{margin-bottom:34px}
+.cat h3{
+  font-family:var(--f-display);font-weight:400;font-size:22px;margin:0 0 4px;
+  display:flex;align-items:center;gap:14px;
+}
+.cat h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.cat .cat-note{font-size:13px;color:var(--ink-soft);margin:0 0 16px}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.item{
+  border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper-3);
+  padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;text-align:left;
+  transition:.14s;
+}
+.item:active{background:var(--paper-2)}
+.item.off{opacity:.5}
+.item .nm{font-size:16.5px;display:block;margin-bottom:3px}
+.item .ds{font-size:13px;color:var(--ink-soft)}
+.item .pr{font-family:var(--f-num);font-size:16px;font-weight:600;white-space:nowrap}
+
+/* ─── 장바구니 바 / 장바구니 ────────────────────────────── */
+.cartbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  background:var(--pine);color:var(--paper-3);
+  padding:14px var(--pad);padding-bottom:calc(14px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:18px;
+  transform:translateY(110%);transition:transform .26s cubic-bezier(.3,.8,.3,1);
+}
+.cartbar.show{transform:none}
+.cartbar .sum{display:flex;flex-direction:column;gap:2px}
+.cartbar .sum .c{font-size:13px;opacity:.75}
+.cartbar .sum .t{font-family:var(--f-num);font-size:24px;font-weight:600}
+.cartbar .acts{margin-left:auto;display:flex;gap:10px}
+.cartbar .btn{background:var(--amber)}
+.cartbar .btn.ghost{background:transparent;border-color:rgba(251,247,240,.4);color:var(--paper-3)}
+
+.cart-row{
+  display:flex;gap:16px;align-items:flex-start;
+  padding:18px 0;border-bottom:1px solid var(--line-soft);
+}
+.cart-row .grow{flex:1;min-width:0}
+.cart-row .nm{font-size:17px;margin-bottom:4px}
+.cart-row .op{font-size:13.5px;color:var(--ink-soft)}
+.cart-row .pr{font-family:var(--f-num);font-size:17px;font-weight:600;white-space:nowrap;text-align:right}
+.cart-row .pr small{display:block;font-size:12px;font-weight:400;color:var(--amber-deep);letter-spacing:0}
+.cart-empty{text-align:center;padding:80px 20px;color:var(--ink-soft)}
+.cart-empty .big{font-family:var(--f-display);font-size:24px;color:var(--ink);margin-bottom:10px}
+.sum-box{border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);padding:22px;margin-top:22px}
+
+/* ─── 주문 완료 ─────────────────────────────────────────── */
+.ticket{
+  max-width:520px;margin:0 auto;background:var(--paper-3);
+  border:1.5px solid var(--line);border-radius:var(--r-lg);padding:34px;
+}
+.ticket .no{font-family:var(--f-num);font-size:58px;font-weight:600;letter-spacing:.06em;text-align:center;color:var(--pine);line-height:1.1}
+.ticket .no-lbl{text-align:center;margin-bottom:22px}
+.tr{display:flex;justify-content:space-between;gap:14px;padding:9px 0;font-size:15px;border-bottom:1px dashed var(--line-soft)}
+.tr .op{font-size:12.5px;color:var(--ink-soft);display:block}
+
+/* ─── 관리자 ────────────────────────────────────────────── */
+.admin-note{
+  border-left:4px solid var(--amber);background:var(--paper-2);
+  padding:14px 18px;font-size:14px;margin-bottom:24px;border-radius:0 var(--r) var(--r) 0;line-height:1.65;
+}
+.a-sec{border:1.5px solid var(--line);border-radius:var(--r-lg);background:var(--paper-3);padding:22px;margin-bottom:18px}
+.a-sec h3{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 4px}
+.a-sec .sub{font-size:13.5px;color:var(--ink-soft);margin:0 0 18px}
+.fld{margin-bottom:16px}
+.fld label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;font-weight:600}
+.fld input,.fld textarea,.fld select{
+  width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:var(--r);
+  background:var(--paper);font-size:15px;line-height:1.6;
+}
+.fld textarea{min-height:86px;resize:vertical}
+.a-row{
+  display:grid;grid-template-columns:1fr 130px 96px;gap:12px;align-items:center;
+  padding:12px 0;border-bottom:1px solid var(--line-soft);
+}
+@media (max-width:640px){.a-row{grid-template-columns:1fr}}
+.a-row .t{font-size:15px}
+.a-row .t small{display:block;color:var(--ink-soft);font-size:12px}
+.a-row input{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper);font-family:var(--f-num);text-align:right}
+.sw{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;user-select:none}
+.sw input{width:20px;height:20px;accent-color:var(--pine)}
+.pin-wrap{max-width:340px;margin:70px auto;text-align:center}
+.pin-wrap input{
+  width:100%;padding:16px;text-align:center;font-family:var(--f-num);font-size:30px;letter-spacing:.5em;
+  border:1.5px solid var(--line);border-radius:var(--r);background:var(--paper-3);
+}
+.toast{
+  position:fixed;left:50%;bottom:120px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:var(--paper);padding:13px 24px;border-radius:100px;
+  font-size:15px;z-index:90;opacity:0;pointer-events:none;transition:.24s;
+}
+.toast.show{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   ①  메 뉴 데 이 터  —  수정은 대부분 이 블록 안에서만 하시면 됩니다.
+   ═══════════════════════════════════════════════════════════════════════
+   · price      : 원 단위 숫자 (쉼표 없이)
+   · ice        : true 면 "차가운 +500" 선택 가능
+   · takeout    : true 면 테이크아웃 1,000원 할인 대상
+   · flavor     : 1~5 (산미/바디/단맛/향/밸런스) — 레이더 차트에 쓰입니다
+   · tags       : 기분 필터  first(처음) / wake(잠깨기) / slow(느긋) /
+                  dessert(디저트) / special(특별) / aroma(향) / night(밤)
+   · ownerNote  : 비워두세요. 사장님이 관리자 화면에서 입력합니다.
+   ─────────────────────────────────────────────────────────────────────── */
+const MENU_DATA = {
+  cafe:{
+    name:"STAIR", nameKo:"스테어 커피",
+    instagram:"@stair_2025",
+    wifiId:"Cafe_stair", wifiPw:"stair541!"
+  },
+  options:{ icePrice:500, takeoutDiscount:1000 },
+
+  /* ── 브루잉 커피 (싱글 오리진) ── */
+  beans:[
+  {
+    id:"hn-parainema", price:8500, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"온두라스 산타 루시아 파라이네마", process:"워시드",
+    country:"온두라스", region:"엘 파라이소", farm:"산타 루시아", variety:"파라이네마",
+    altitude:1350, altitudeText:"1,200–1,500m", roast:"미디엄",
+    headline:"신맛이 튀지 않아, 첫 잔으로 가장 편한 커피",
+    notes:["오렌지","아몬드","캐러멜","조청","은은한 꽃"],
+    flavor:{acidity:2,body:3,sweet:4,aroma:3,balance:5},
+    easy:"파라이네마는 온두라스가 병충해를 이겨내려고 직접 만들어낸 품종입니다. 콩이 게이샤처럼 길쭉해서 눈으로도 구별이 될 정도예요. 신맛이 앞으로 튀어나오지 않고 단맛이 먼저 오기 때문에, 산미가 부담스러운 분도 편하게 마실 수 있습니다.",
+    story:"2010년대 초 커피 녹병이 중미를 휩쓸었을 때, 온두라스 커피연구소가 개발한 파라이네마가 강한 저항성으로 농가를 지켜냈습니다. '병충해에 강한 품종은 맛이 없다'는 통념을 뒤집고 2017년 온두라스 컵 오브 엑설런스에서 우승까지 차지했죠.",
+    when:["스페셜티 커피가 처음이신 분","신 커피는 좀 부담스러울 때","아침 첫 잔, 속이 편해야 할 때"],
+    tags:["first","slow"]
+  },
+  {
+    id:"pa-geisha", price:12000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"파나마 모건 에이릴 게이샤 (하치)", process:"워시드",
+    country:"파나마", region:"보케테, 치리키", farm:"모건 에스테이트", variety:"게이샤",
+    altitude:1550, altitudeText:"1,400–1,700m", roast:"라이트",
+    headline:"커피에서 향수 냄새가 난다는 말, 여기서 시작됐습니다",
+    notes:["자스민","베르가못","복숭아","화이트와인","파파야"],
+    flavor:{acidity:4,body:2,sweet:4,aroma:5,balance:4},
+    easy:"게이샤는 원래 에티오피아 품종인데, 파나마 고지대에 옮겨 심으면서 향이 폭발적으로 살아났습니다. 얼그레이 홍차의 그 향(베르가못)과 자스민 꽃향이 컵 위로 확 올라와요. 바디는 가볍고 홍차에 가깝습니다.",
+    story:"2004년 파나마의 한 농장이 잡초처럼 방치했던 나무에서 나온 커피로 경매를 휩쓸면서, 스페셜티 커피 시장의 판도가 완전히 바뀌었습니다. 그 뒤로 보케테 지역의 게이샤는 세계에서 가장 비싼 커피 중 하나가 되었죠.",
+    when:["커피 향에 제대로 놀라보고 싶을 때","홍차나 꽃차를 좋아하시는 분","향수처럼 천천히 음미하고 싶을 때"],
+    tags:["aroma","special","slow"]
+  },
+  {
+    id:"ke-kiambu", price:11000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"케냐 키암부 모랑 AA TOP", process:"워시드",
+    country:"케냐", region:"키암부", farm:"모랑 에스테이트", variety:"SL28 · SL34",
+    altitude:1600, altitudeText:"1,500–1,700m", roast:"미디엄 라이트",
+    headline:"자몽을 한 입 베어 문 것 같은, 가장 또렷한 산미",
+    notes:["자몽","블랙커런트","토마토","흑설탕","레드와인 여운"],
+    flavor:{acidity:5,body:4,sweet:3,aroma:4,balance:4},
+    easy:"이름 뒤의 AA는 맛 등급이 아니라 콩 크기 등급입니다. 케냐 커피의 시그니처는 자몽과 블랙커런트 같은 선명한 산미인데, 여기에 바디까지 받쳐줘서 신맛이 얇게 느껴지지 않아요. 정신이 확 드는 커피입니다.",
+    story:"케냐 커피가 처음 심어진 곳이 바로 '이슬비의 땅'이라는 뜻의 키암부입니다. 케냐산 자락의 큰 일교차가 콩을 단단하게 만들고, 붉은 화산토가 특유의 산미를 만듭니다.",
+    when:["잠이 확 깨야 할 때","오후에 집중력이 필요할 때","자몽·베리 같은 상큼함을 좋아하시는 분"],
+    tags:["wake","aroma"]
+  },
+  {
+    id:"cr-volcanazul", price:9000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"코스타리카 볼칸 아줄 산 이시드로", process:"내추럴",
+    country:"코스타리카", region:"알라후엘라, 센트럴밸리", farm:"볼칸 아줄", variety:"카투라 · 비야사르치",
+    altitude:1625, altitudeText:"1,600–1,650m", roast:"미디엄 라이트",
+    headline:"딸기와 붉은 포도, 과일 단맛이 진하게 오는 커피",
+    notes:["딸기","붉은 포도","구운 헤이즐넛","카시스","와인 초콜릿"],
+    flavor:{acidity:3,body:4,sweet:5,aroma:4,balance:4},
+    easy:"'내추럴'은 커피 열매를 껍질째 통으로 말리는 방식입니다. 과육의 단맛이 씨앗(원두)에 그대로 배어들어서, 잘 익은 붉은 과일 같은 단맛이 납니다. 산미보다 단맛이 먼저 느껴지는 커피예요.",
+    story:"바르바 화산과 포아스 화산 경사면에 있는 볼칸 아줄 농장은 6대째 가업입니다. 농장주 알레호 카스트로는 '내 최고의 커피는 내 인생 마지막 커피일 것'이라는 말을 남겼죠.",
+    when:["디저트와 같이 드실 때","달콤한 커피가 당길 때","커피에서 과일 맛을 찾아보고 싶을 때"],
+    tags:["dessert","first","slow"]
+  },
+  {
+    id:"gt-injerto", price:17000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"과테말라 엘 인헤르또 게이샤", process:"워시드",
+    country:"과테말라", region:"우에우에테낭고", farm:"엘 인헤르또", variety:"게이샤",
+    altitude:1720, altitudeText:"1,463–1,981m", roast:"라이트",
+    headline:"컵 오브 엑설런스 최다 우승 농장의 게이샤",
+    notes:["라벤더","복숭아","청포도","레몬 사탕","꿀"],
+    flavor:{acidity:4,body:3,sweet:5,aroma:5,balance:5},
+    easy:"파나마 게이샤가 화려한 쪽이라면, 이쪽은 정돈된 쪽입니다. 라벤더 같은 은은한 꽃향에 복숭아와 꿀 단맛이 붙어서 처음부터 끝까지 균형이 무너지지 않아요. '잘 만든 커피'가 무엇인지 보여주는 잔입니다.",
+    story:"엘 인헤르또는 컵 오브 엑설런스에서 여덟 번 넘게 1위를 차지한, 세계에서 유일한 기록의 농장입니다. 농장주 아르투로 아기레가 파나마 여행 중 라 에스메랄다에서 얻어온 게이샤 씨앗이 이 커피의 시작이었습니다.",
+    when:["균형 잡힌 고급 커피를 마셔보고 싶을 때","게이샤를 처음 경험해보실 때","좋은 소식이 있는 날"],
+    tags:["special","aroma","slow"]
+  },
+  {
+    id:"co-potosi", price:11500, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"콜롬비아 포토시 트레스 드래곤즈", process:"내추럴",
+    country:"콜롬비아", region:"우일라", farm:"포토시", variety:"카스티죠 · 콜롬비아",
+    altitude:1750, altitudeText:"1,700–1,800m", roast:"미디엄",
+    headline:"럼주에 절인 과일 같은, 가장 진득한 단맛",
+    notes:["절인 열대과일","럼","다크 초콜릿","건자두","캐러멜"],
+    flavor:{acidity:3,body:5,sweet:5,aroma:4,balance:4},
+    easy:"이 목록에서 바디감이 가장 묵직한 커피입니다. 산미는 뒤로 물러나 있고, 럼주에 절인 과일이나 건자두 같은 농익은 단맛이 입안을 꽉 채워요. 식은 뒤에 초콜릿 여운이 길게 남습니다.",
+    story:"안데스 산맥의 우일라는 콜롬비아 커피의 심장부입니다. 화산재 토양과 고른 강수량이 콜롬비아 특유의 부드러운 단맛을 만들어냅니다.",
+    when:["비 오는 날, 창가에서","저녁에 진한 한 잔","위스키나 다크 초콜릿을 좋아하시는 분"],
+    tags:["slow","dessert"]
+  },
+  {
+    id:"gt-socorro", price:9500, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"과테말라 엘 소코로 파카마라", process:"워시드",
+    country:"과테말라", region:"팔렌시아", farm:"엘 소코로", variety:"파카마라",
+    altitude:1800, altitudeText:"1,800m 이상", roast:"미디엄 라이트",
+    headline:"청사과처럼 깔끔하게 떨어지는 산미",
+    notes:["청사과","라임","흑설탕","카카오닙스","백합"],
+    flavor:{acidity:4,body:3,sweet:4,aroma:4,balance:4},
+    easy:"파카마라는 파카스와 마라고지페를 교배한 품종으로, 원두 알이 눈에 띄게 큽니다. 고지대에서 자랄수록 깔끔한 맛과 꽃향이 살아나는데, 이 커피가 딱 그 예입니다. 끝맛에 카카오닙스 같은 쌉쌀함이 살짝 남아 균형을 잡아줍니다.",
+    story:"엘 소코로 농장은 2007년 과테말라 컵 오브 엑설런스 1위를 시작으로 지금까지 네 번 우승했습니다. 엘 인헤르또와 함께 과테말라를 대표하는 이름입니다.",
+    when:["오후에 상쾌하게 리셋하고 싶을 때","기름진 식사 뒤에","깔끔한 맛을 좋아하시는 분"],
+    tags:["wake","first"]
+  },
+  {
+    id:"co-paraiso92", price:19000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"콜롬비아 파라이소92 게이샤 싱글", process:"애너로빅",
+    country:"콜롬비아", region:"카우카, 피엔다모", farm:"그란하 파라이소 92", variety:"게이샤",
+    altitude:1950, altitudeText:"1,950m", roast:"라이트",
+    headline:"이게 커피 맞나 싶은, 실험실에서 온 한 잔",
+    notes:["리치","장미","패션프루트","히비스커스","시럽 같은 단맛"],
+    flavor:{acidity:4,body:4,sweet:5,aroma:5,balance:3},
+    easy:"'애너로빅(무산소 발효)'은 산소를 차단한 탱크에서 커피를 발효시키는 방식입니다. 여기에 열충격 처리까지 더하면 원래 커피에 없던 향이 만들어져요. 리치와 장미향이 확 올라오는데, 커피라기보다 향 좋은 과일차에 가깝게 느껴질 수 있습니다.",
+    story:"농장주 윌튼 베니테스는 농장 안에 발효 연구소를 두고 효모와 미생물을 직접 제어합니다. 온도·습도·발효 시간을 데이터로 관리해 원하는 향을 '설계'하는, 커피 가공의 최전선입니다.",
+    when:["오늘은 좀 특별한 걸 마시고 싶을 때","커피 좋아하는 친구에게 자랑하고 싶을 때","새로운 걸 시도해보고 싶을 때"],
+    tags:["special","aroma"]
+  },
+  {
+    id:"et-yirga", price:10500, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"에티오피아 예가체프 보타바 셀렉션", process:"워시드",
+    country:"에티오피아", region:"예가체프", farm:"보타바 셀렉션", variety:"토착종(헤어룸)",
+    altitude:2000, altitudeText:"1,900–2,100m", roast:"라이트",
+    headline:"홍차처럼 맑게 넘어가는 커피의 교과서",
+    notes:["자스민","베르가못","레몬","홍차","꿀"],
+    flavor:{acidity:5,body:2,sweet:3,aroma:5,balance:4},
+    easy:"워시드는 열매의 과육을 물로 씻어내고 씨앗만 말리는 방식이라 맛이 아주 깨끗합니다. 예가체프 워시드는 그 정점이에요. 얼그레이 향(베르가못)과 자스민이 또렷하고, 바디가 가벼워 홍차처럼 술술 넘어갑니다.",
+    story:"커피나무의 고향이 에티오피아입니다. 예가체프는 그중에서도 '베르가못의 본고장'으로 불리는 곳으로, 전 세계 로스터가 산미의 기준으로 삼는 지역입니다.",
+    when:["오후에 차 마시듯 가볍게","커피의 '기준'을 알고 싶을 때","향은 좋되 속은 편했으면 할 때"],
+    tags:["aroma","slow","first"]
+  },
+  {
+    id:"et-hambela", price:10000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"에티오피아 구지 함벨라 단세 사이샤", process:"내추럴",
+    country:"에티오피아", region:"오로미아, 구지", farm:"함벨라", variety:"74110 · 74112",
+    altitude:2075, altitudeText:"1,900–2,250m", roast:"미디엄 라이트",
+    headline:"블루베리 향이 코부터 때리는 커피",
+    notes:["블루베리","라벤더","복숭아","다크 초콜릿","청포도"],
+    flavor:{acidity:3,body:4,sweet:5,aroma:5,balance:4},
+    easy:"에티오피아 내추럴 하면 떠오르는 그 블루베리 향이 가장 진하게 나는 커피입니다. 잔에 코를 대는 순간 알 수 있어요. 산미보다 잘 익은 베리의 단맛이 앞서고, 뒤에 초콜릿이 받쳐줍니다.",
+    story:"함벨라 농장을 운영하는 메타드(METAD)는 1934년 아프리카 최초의 여성 조종사를 배출한 가문의 회사입니다. 자체 품질 연구소를 두고 재배부터 수출까지 직접 관리하며, 수익 일부로 지역에 학교와 병원을 짓고 있습니다.",
+    when:["커피가 이런 향도 나는구나, 놀라고 싶을 때","달콤한 커피를 좋아하시는 분","케이크와 함께"],
+    tags:["dessert","aroma","first"]
+  },
+  {
+    id:"et-tamiru", price:15000, active:true, ice:true, takeout:true, ownerNote:"",
+    name:"에티오피아 타미루 알로 리미티드 랏", process:"내추럴",
+    country:"에티오피아", region:"시다마, 벤사", farm:"알로 커피 (타미루 타데세)", variety:"74158",
+    altitude:2450, altitudeText:"2,400–2,500m", roast:"라이트",
+    headline:"이 메뉴판에서 가장 높은 곳에서 온 커피",
+    notes:["패션프루트","블랙베리","딸기잼","바닐라","레몬 제스트"],
+    flavor:{acidity:4,body:4,sweet:5,aroma:5,balance:5},
+    easy:"해발 2,400m가 넘는 곳에서 자라 콩이 아주 작고 단단합니다. 밤낮 기온차가 클수록 커피는 천천히 익고 향이 촘촘해지는데, 그 결과가 이 잔에 다 들어 있어요. 패션프루트와 딸기잼 같은 진한 과일 단맛에 산미까지 살아 있습니다.",
+    story:"타미루 타데세는 2020년 자기 회사를 세우면서, 아무도 가공소를 두지 않던 해발 2,400m 알로 마을에 시설을 짓는 모험을 했습니다. 그리고 이듬해 에티오피아 컵 오브 엑설런스에서 1위와 5위를 동시에 차지했죠.",
+    when:["기념일이나 특별한 날","커피를 진심으로 좋아하시는 분","한 번쯤 최고를 마셔보고 싶을 때"],
+    tags:["special","aroma","dessert"]
+  },
+  {
+    id:"et-decaf", price:8000, active:true, ice:true, takeout:true, ownerNote:"", decaf:true,
+    name:"에티오피아 시다모 디카페인", process:"마운틴워터",
+    country:"에티오피아", region:"시다모", farm:"—", variety:"토착종(헤어룸)",
+    altitude:1900, altitudeText:"1,800–2,000m", roast:"미디엄",
+    headline:"카페인만 빼고 향은 그대로 두는 방법",
+    notes:["밀크 초콜릿","자두","브라운 슈가","견과"],
+    flavor:{acidity:2,body:4,sweet:4,aroma:3,balance:5},
+    easy:"마운틴워터 프로세스는 멕시코 오리사바 산의 빙하수로 카페인만 골라 씻어내는 방식입니다. 화학 용매를 쓰지 않아 원두가 상하지 않고, 카페인은 99% 이상 빠집니다. 디카페인이 맛없다는 편견을 깨는 쪽에 가깝습니다.",
+    story:"물로만 카페인을 빼는 방식은 공정이 까다롭고 비용도 더 들지만, 커피 본래의 향을 가장 적게 잃습니다. 그래서 스페셜티 카페들이 디카페인에 이 방식을 씁니다.",
+    when:["저녁에 커피가 당길 때","카페인이 부담스러우신 분","임신 중이거나 잠을 놓치기 싫을 때"],
+    tags:["night","first","slow"]
+  }
+  ],
+
+  /* ── 그 외 메뉴 ── */
+  menu:[
+    { cat:"블렌디드 커피", note:"차가운 +500", items:[
+      { id:"blend", name:"스테어 블렌드", price:7000, ice:true, takeout:true, active:true,
+        desc:"매일 내리는 스테어의 기본 커피",
+        choose:{ label:"로스팅", options:["라이트","미디엄","다크"] } }
+    ]},
+    { cat:"에스프레소", note:"차가운 +500", items:[
+      { id:"americano", name:"아메리카노", price:5500, ice:true, takeout:true, active:true, desc:"스테어 블렌드로 추출" },
+      { id:"latte", name:"카페 라떼 / 카푸치노", price:6500, ice:true, takeout:true, active:true,
+        choose:{ label:"메뉴 선택", options:["카페 라떼","카푸치노"] } }
+    ]},
+    { cat:"리필 커피", note:"차가운 +500 · 테이크아웃 불가", items:[
+      { id:"refill", name:"스테어 블렌드 리필", price:3000, ice:true, takeout:false, active:true,
+        desc:"매장에서 커피를 드신 분께",
+        choose:{ label:"로스팅", options:["라이트","미디엄","다크"] } }
+    ]},
+    { cat:"차", note:"차가운 +500", items:[
+      { id:"lavender", name:"프레스티지 프렌치 라벤더", price:10000, ice:true, takeout:true, active:true, desc:"진정에 좋은 프랑스산 라벤더" },
+      { id:"chamomile", name:"부띠크 카모마일", price:9000, ice:true, takeout:true, active:true, desc:"은은한 사과향, 잠들기 전에" },
+      { id:"peppermint", name:"페퍼민트 (디카페인)", price:8000, ice:true, takeout:true, active:true, desc:"식사 후 개운하게" }
+    ]},
+    { cat:"음료", note:"", items:[
+      { id:"energy", name:"기력 회복", price:9500, ice:false, takeout:true, active:true, desc:"지친 날을 위한 스테어의 한 잔" },
+      { id:"cola", name:"수제 콜라", price:8500, ice:false, takeout:true, active:true, desc:"직접 만든 향신료 시럽" },
+      { id:"berryade", name:"베리 에이드", price:8000, ice:false, takeout:true, active:true, desc:"상큼하게 톡 쏘는" }
+    ]},
+    { cat:"영·유아 전용 음료", note:"", items:[
+      { id:"applejuice", name:"사과 주스", price:5000, ice:false, takeout:true, active:true, desc:"" }
+    ]},
+    { cat:"디저트", note:"테이크아웃 불가", items:[
+      { id:"toast", name:"미니 토스트와 수제 콩포트", price:7000, ice:false, takeout:false, active:true, desc:"직접 졸인 과일 콩포트와 함께" },
+      { id:"cheesecake", name:"믹스 베리 치즈케이크", price:7500, ice:false, takeout:false, active:true, desc:"산미 있는 커피와 잘 맞습니다" }
+    ]}
+  ]
+};
+
+/* 기분 필터 정의 */
+const MOOD = [
+  {k:"first",   t:"처음이라 무난하게"},
+  {k:"wake",    t:"잠 깨야 해"},
+  {k:"slow",    t:"느긋하게"},
+  {k:"dessert", t:"디저트랑"},
+  {k:"aroma",   t:"향에 집중"},
+  {k:"special", t:"오늘은 특별하게"},
+  {k:"night",   t:"밤에도 편하게"}
+];
+/* 맛 필터 정의 — 원두의 flavor 값으로 자동 판정합니다 */
+const TASTE = [
+  {k:"acid",   t:"산미 또렷",  fn:b=>b.flavor.acidity>=4},
+  {k:"mild",   t:"부드러움",  fn:b=>b.flavor.acidity<=2},
+  {k:"heavy",  t:"묵직함",    fn:b=>b.flavor.body>=4},
+  {k:"floral", t:"화사한 향", fn:b=>b.flavor.aroma>=5}
+];
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ②  저 장 소  —  관리자 변경사항을 브라우저에 저장합니다.
+   저장이 막힌 환경에서는 자동으로 메모리 저장으로 넘어갑니다(에러 없음).
+   영구 보관은 관리자 → 설정 내보내기(JSON)를 이용하세요.
+   ═══════════════════════════════════════════════════════════════════════ */
+const KEY = "stair.cafe.v1";
+const Store = (()=>{
+  let mem = null, ok = true;
+  try{ const t="__t"; window.localStorage.setItem(t,"1"); window.localStorage.removeItem(t); }
+  catch(e){ ok = false; }
+  return {
+    persistent: ok,
+    load(){
+      if(!ok) return mem;
+      try{ const r = window.localStorage.getItem(KEY); return r ? JSON.parse(r) : null; }
+      catch(e){ return mem; }
+    },
+    save(o){
+      mem = o;
+      if(!ok) return false;
+      try{ window.localStorage.setItem(KEY, JSON.stringify(o)); return true; }
+      catch(e){ return false; }
+    }
+  };
+})();
+
+/* 관리자가 바꿀 수 있는 값의 기본값 */
+const DEFAULT_SETTINGS = {
+  pin:"2025",
+  banner:"(샘플) 오늘은 비가 오니 포토시 트레스 드래곤즈를 권해드립니다. 진하게 내려드릴게요. — 관리자 화면에서 이 문구를 바꾸세요.",
+  todayPick:"et-hambela",
+  idleReset:true,
+  idleSec:150,
+  overrides:{}   /* { 아이템id : {price, active, ownerNote} } */
+};
+
+let S = Object.assign({}, DEFAULT_SETTINGS, Store.load()||{});
+S.overrides = S.overrides || {};
+function persist(){ Store.save(S); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ③  상 태
+   ═══════════════════════════════════════════════════════════════════════ */
+let state = {
+  view:"home",       /* home | beans | bean | menu | cart | done | admin */
+  beanId:null,
+  mood:null, taste:null,
+  stairView:true,
+  cart:[],
+  draft:null,
+  order:null,
+  adminOK:false,
+  logoTaps:0, logoTimer:null
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ④  유 틸
+   ═══════════════════════════════════════════════════════════════════════ */
+const $ = s=>document.querySelector(s);
+const won = n=>n.toLocaleString("ko-KR")+"원";
+const esc = s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* 관리자 수정값을 반영한 아이템 반환 */
+function ov(item){
+  const o = S.overrides[item.id] || {};
+  return Object.assign({}, item, o);
+}
+function allBeans(){ return MENU_DATA.beans.map(ov); }
+function bean(id){ return allBeans().find(b=>b.id===id); }
+function flatMenu(){
+  const out=[];
+  MENU_DATA.menu.forEach(c=>c.items.forEach(i=>out.push(Object.assign(ov(i),{cat:c.cat}))));
+  return out;
+}
+function findAny(id){ return bean(id) || flatMenu().find(i=>i.id===id); }
+
+function toast(msg){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+/* 장바구니 계산 */
+function lineTotal(l){
+  const it = findAny(l.id); if(!it) return 0;
+  let p = it.price;
+  if(l.ice) p += MENU_DATA.options.icePrice;
+  if(l.takeout) p -= MENU_DATA.options.takeoutDiscount;
+  return p * l.qty;
+}
+function cartTotal(){ return state.cart.reduce((s,l)=>s+lineTotal(l),0); }
+function cartCount(){ return state.cart.reduce((s,l)=>s+l.qty,0); }
+
+/* 향미 레이더 차트 SVG */
+function radarSVG(f){
+  const ax=[["산미",f.acidity],["바디",f.body],["단맛",f.sweet],["향",f.aroma],["밸런스",f.balance]];
+  const cx=150, cy=134, R=94, n=5;
+  const pt=(i,r)=>{
+    const a = -Math.PI/2 + i*2*Math.PI/n;
+    return [cx+Math.cos(a)*r, cy+Math.sin(a)*r];
+  };
+  let rings="";
+  for(let k=1;k<=5;k++){
+    const pts=[...Array(n)].map((_,i)=>pt(i,R*k/5).map(v=>v.toFixed(1)).join(",")).join(" ");
+    rings+=`<polygon points="${pts}" style="fill:none;stroke:var(--line);stroke-width:${k===5?1.4:0.8}" ${k<5?'stroke-dasharray="2 3"':''}/>`;
+  }
+  let spokes="";
+  for(let i=0;i<n;i++){ const [x,y]=pt(i,R); spokes+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" style="stroke:var(--line);stroke-width:.8"/>`; }
+  const shape=ax.map((a,i)=>pt(i,R*a[1]/5).map(v=>v.toFixed(1)).join(",")).join(" ");
+  let dots="", labels="";
+  ax.forEach((a,i)=>{
+    const [px,py]=pt(i,R*a[1]/5);
+    dots+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.4" style="fill:var(--amber)"/>`;
+    const [lx,ly]=pt(i,R+24);
+    labels+=`<text x="${lx.toFixed(1)}" y="${(ly+4).toFixed(1)}" text-anchor="middle" style="font-size:12.5px;fill:var(--ink-soft)">${a[0]}</text>`+
+            `<text x="${lx.toFixed(1)}" y="${(ly+19).toFixed(1)}" text-anchor="middle" style="font-size:11px;fill:var(--amber-deep);font-family:var(--f-num)">${a[1]}</text>`;
+  });
+  return `<svg class="radar" viewBox="0 0 300 290" role="img" aria-label="향미 그래프">
+    ${rings}${spokes}
+    <polygon points="${shape}" style="fill:rgba(176,116,28,.20);stroke:var(--amber);stroke-width:2"/>
+    ${dots}${labels}</svg>`;
+}
+
+/* 작은 막대 게이지 */
+function bars(label,v){
+  let h=`<div class="bars"><em>${label}</em>`;
+  for(let i=1;i<=5;i++) h+=`<i class="${i<=v?'on':''}"></i>`;
+  return h+"</div>";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ⑤  화 면 그 리 기
+   ═══════════════════════════════════════════════════════════════════════ */
+function render(){
+  const v=state.view;
+  const nav = v==="admin" ? "" : `
+    <nav class="nav">
+      <button data-go="home"  ${v==="home"?'aria-current="page"':""}>홈</button>
+      <button data-go="beans" ${(v==="beans"||v==="bean")?'aria-current="page"':""}>원두 고르기</button>
+      <button data-go="menu"  ${v==="menu"?'aria-current="page"':""}>그 외 메뉴</button>
+      <button data-go="cart"  ${v==="cart"?'aria-current="page"':""}>주문표${cartCount()?` (${cartCount()})`:""}</button>
+    </nav>`;
+
+  const body =
+    v==="home"  ? viewHome()  :
+    v==="beans" ? viewBeans() :
+    v==="bean"  ? viewBean()  :
+    v==="menu"  ? viewMenu()  :
+    v==="cart"  ? viewCart()  :
+    v==="done"  ? viewDone()  :
+    v==="admin" ? viewAdmin() : "";
+
+  const showBar = cartCount()>0 && ["home","beans","bean","menu"].includes(v);
+
+  $("#app").innerHTML = `
+    <header class="topbar">
+      <div class="brand" id="brand" role="button" tabindex="0" aria-label="스테어 커피 홈">
+        <b>${MENU_DATA.cafe.name}</b><span>${MENU_DATA.cafe.nameKo}</span>
+      </div>
+      ${nav}
+    </header>
+    <main><div class="view">${body}</div></main>
+    <div class="cartbar ${showBar?"show":""}">
+      <div class="sum"><span class="c">${cartCount()}개 담김</span><span class="t">${won(cartTotal())}</span></div>
+      <div class="acts">
+        <button class="btn ghost sm" data-clear>비우기</button>
+        <button class="btn" data-go="cart">주문표 보기</button>
+      </div>
+    </div>`;
+  bind();
+  window.scrollTo(0,0);
+}
+
+/* ── 홈 ─────────────────────────────────────────────────── */
+function viewHome(){
+  const pick = bean(S.todayPick) || allBeans()[0];
+  return `
+  <div class="hero">
+    <div class="eyebrow">사장님 한마디</div>
+    <h2>${esc(S.banner)||"오늘도 좋은 커피 준비해두었습니다."}</h2>
+    <div class="sig">스테어 커피</div>
+  </div>
+
+  <div class="home-grid">
+    <button class="pick" data-bean="${pick.id}">
+      <div class="pick-top">
+        <span class="eyebrow">오늘의 원두</span>
+        <span class="mono">${won(pick.price)}</span>
+      </div>
+      <div class="pick-body">
+        <div class="eyebrow" style="margin-bottom:8px">${esc(pick.country)} · ${esc(pick.process)} · ${esc(pick.altitudeText)}</div>
+        <h3>${esc(pick.name)}</h3>
+        <p class="head">${esc(pick.headline)}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+          ${pick.notes.slice(0,4).map(n=>`<span class="chip note">${esc(n)}</span>`).join("")}
+        </div>
+        ${bars("산미",pick.flavor.acidity)}${bars("바디",pick.flavor.body)}${bars("단맛",pick.flavor.sweet)}
+      </div>
+    </button>
+
+    <div class="info-card">
+      <h4>매장 안내</h4>
+      <div class="kv"><span>와이파이 ID</span><b>${esc(MENU_DATA.cafe.wifiId)}</b></div>
+      <div class="kv"><span>와이파이 비밀번호</span><b>${esc(MENU_DATA.cafe.wifiPw)}</b></div>
+      <div class="kv"><span>인스타그램</span><b>${esc(MENU_DATA.cafe.instagram)}</b></div>
+      <div class="kv"><span>테이크아웃</span><b>-${MENU_DATA.options.takeoutDiscount.toLocaleString()}원</b></div>
+      <div class="kv"><span>차가운 음료</span><b>+${MENU_DATA.options.icePrice}원</b></div>
+      <p class="hint">디저트와 리필 커피는 테이크아웃이 되지 않습니다.</p>
+    </div>
+  </div>
+
+  <div class="quick">
+    <button data-go="beans"><span class="q-t">원두 ${allBeans().filter(b=>b.active).length}종 보기</span><span class="q-d">고도 계단으로 한눈에</span></button>
+    <button data-mood="first"><span class="q-t">처음이라 무난하게</span><span class="q-d">신맛 부담 없는 커피</span></button>
+    <button data-mood="wake"><span class="q-t">잠 깨야 해</span><span class="q-d">산미가 또렷한 커피</span></button>
+    <button data-mood="night"><span class="q-t">밤에도 편하게</span><span class="q-d">디카페인</span></button>
+    <button data-go="menu"><span class="q-t">그 외 메뉴</span><span class="q-d">차 · 음료 · 디저트</span></button>
+  </div>`;
+}
+
+/* ── 원두 목록 ──────────────────────────────────────────── */
+function viewBeans(){
+  let list = allBeans();
+  if(state.mood)  list = list.filter(b=>(b.tags||[]).includes(state.mood));
+  if(state.taste){ const t=TASTE.find(x=>x.k===state.taste); list = list.filter(t.fn); }
+
+  const moodChips = MOOD.map(m=>`<button class="chip" data-mood="${m.k}" aria-pressed="${state.mood===m.k}">${m.t}</button>`).join("");
+  const tasteChips= TASTE.map(t=>`<button class="chip" data-taste="${t.k}" aria-pressed="${state.taste===t.k}">${t.t}</button>`).join("");
+
+  return `
+  <h1 class="page">원두 고르기</h1>
+  <p class="page-sub">이름이 길어 보이지만, 사실 <b>나라 · 지역 · 농장 · 품종 · 가공방식</b> 순서로 적혀 있습니다. 이름만 읽어도 맛이 짐작돼요.</p>
+
+  <div class="filters"><span class="lbl">기분</span>${moodChips}</div>
+  <div class="filters"><span class="lbl">맛</span>${tasteChips}
+    <button class="chip" data-reset style="margin-left:auto">필터 해제</button>
+    <button class="chip" data-toggleview>${state.stairView?"카드로 보기":"계단으로 보기"}</button>
+  </div>
+
+  ${state.stairView && !state.mood && !state.taste ? stairBlock() : ""}
+
+  ${list.length===0
+    ? `<div class="cart-empty"><div class="big">조건에 맞는 원두가 없어요</div><p>필터를 하나만 골라보세요.</p></div>`
+    : `<div class="grid">${list.map(beanCard).join("")}</div>`}
+  `;
+}
+
+/* 시그니처 — 고도 계단 */
+function stairBlock(){
+  const list = allBeans().slice().sort((a,b)=>a.altitude-b.altitude);
+  const lo=1200, hi=2500, RISE=196;
+  const steps = list.map(b=>{
+    const h = Math.round((b.altitude-lo)/(hi-lo)*RISE)+26;
+    return `<button class="step ${b.active?"":"off"}" data-bean="${b.id}" aria-label="${esc(b.name)}, 해발 ${b.altitude}미터, ${won(b.price)}">
+      <div class="bar" style="height:${h}px"><span class="alt">${b.altitude.toLocaleString()}m</span></div>
+      <div class="riser">
+        <span class="nm">${esc(b.name)}</span>
+        <span class="pr">${won(b.price)}</span>
+        ${b.active?"":'<div style="margin-top:7px"><span class="tag-soldout">품절</span></div>'}
+      </div>
+      <div class="tread"></div>
+    </button>`;
+  }).join("");
+  return `
+  <div class="stair-wrap">
+    <div class="stair-head">
+      <div>
+        <h3>고도 계단</h3>
+        <p>왼쪽에서 오른쪽으로 갈수록 커피가 자란 땅이 높아집니다. 높이 올라갈수록 밤낮 기온차가 커져 열매가 천천히 익고, 그만큼 산미가 또렷하고 향이 촘촘해집니다.</p>
+      </div>
+      <span class="eyebrow">옆으로 넘겨보세요 →</span>
+    </div>
+    <div class="stair-scroll"><div class="stair">${steps}</div></div>
+    <div class="stair-axis"><span>낮은 곳 · 순하고 달게</span><span>높은 곳 · 또렷하고 화사하게</span></div>
+  </div>`;
+}
+
+function beanCard(b){
+  return `<button class="bean-card ${b.active?"":"off"}" data-bean="${b.id}">
+    <div class="row1">
+      <span class="origin">${esc(b.country)} · ${esc(b.process)}</span>
+      <span class="price">${won(b.price)}</span>
+    </div>
+    <h3>${esc(b.name)}</h3>
+    <p class="head">${esc(b.headline)}</p>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${bars("산미",b.flavor.acidity)}${bars("바디",b.flavor.body)}${bars("향 ",b.flavor.aroma)}
+    </div>
+    <div class="notes">${b.notes.slice(0,4).map(esc).join(" · ")}</div>
+    ${b.active?"":'<div><span class="tag-soldout">품절</span></div>'}
+  </button>`;
+}
+
+/* ── 원두 상세 ──────────────────────────────────────────── */
+function viewBean(){
+  const b = bean(state.beanId); if(!b) return "";
+  if(!state.draft || state.draft.id!==b.id) state.draft = newDraft(b);
+  const d = state.draft;
+  return `
+  <button class="back" data-go="beans">← 원두 목록</button>
+  <div class="detail">
+    <div>
+      <div class="eyebrow" style="margin-bottom:10px">${esc(b.country)} · ${esc(b.region)}</div>
+      <h1 class="d-title">${esc(b.name)}</h1>
+      <p class="d-head">${esc(b.headline)}</p>
+
+      <dl class="meta">
+        <div><dt>농장</dt><dd>${esc(b.farm)}</dd></div>
+        <div><dt>품종</dt><dd>${esc(b.variety)}</dd></div>
+        <div><dt>가공</dt><dd>${esc(b.process)}</dd></div>
+        <div><dt>고도</dt><dd class="mono">${esc(b.altitudeText)}</dd></div>
+        <div><dt>로스팅</dt><dd>${esc(b.roast)}</dd></div>
+      </dl>
+
+      ${b.ownerNote ? `<div class="owner">
+        <div class="eyebrow">사장님 한마디</div>
+        <p>${esc(b.ownerNote)}</p>
+        <div class="who">스테어 커피</div>
+      </div>` : ""}
+
+      <div class="block">
+        <h4>어떤 맛인가요</h4>
+        <p>${esc(b.easy)}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:14px">
+          ${b.notes.map(n=>`<span class="chip note">${esc(n)}</span>`).join("")}
+        </div>
+      </div>
+
+      <div class="block">
+        <h4>이 커피의 배경</h4>
+        <p>${esc(b.story)}</p>
+      </div>
+
+      <div class="block">
+        <h4>이럴 때 추천합니다</h4>
+        <ul class="when">${b.when.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
+      </div>
+    </div>
+
+    <div>
+      <div class="radar-card">
+        <h4>향미 그래프</h4>
+        <p class="cap">5점에 가까울수록 그 성격이 강합니다.</p>
+        ${radarSVG(b.flavor)}
+      </div>
+      ${orderBox(b,d)}
+    </div>
+  </div>`;
+}
+
+/* 주문 옵션 박스 (원두 상세 · 기타 메뉴 공용) */
+function orderBox(it,d){
+  if(!d) return "";
+  const base = it.price;
+  const unit = base + (d.ice?MENU_DATA.options.icePrice:0) - (d.takeout?MENU_DATA.options.takeoutDiscount:0);
+  return `
+  <div class="order-box">
+    ${!it.active ? `<p class="hint" style="margin:0 0 14px"><span class="tag-soldout">품절</span> 오늘은 준비되지 않았습니다.</p>` : ""}
+
+    ${it.choose ? `<div class="opt"><span class="lbl">${esc(it.choose.label)}</span>
+      <div class="opt-row">${it.choose.options.map(o=>
+        `<button class="chip" data-choose="${esc(o)}" aria-pressed="${d.choice===o}">${esc(o)}</button>`).join("")}</div></div>` : ""}
+
+    ${it.ice ? `<div class="opt"><span class="lbl">온도</span>
+      <div class="opt-row">
+        <button class="chip" data-ice="0" aria-pressed="${!d.ice}">따뜻하게</button>
+        <button class="chip" data-ice="1" aria-pressed="${d.ice}">차갑게 +${MENU_DATA.options.icePrice}</button>
+      </div></div>` : ""}
+
+    <div class="opt"><span class="lbl">드시는 곳</span>
+      <div class="opt-row">
+        <button class="chip" data-to="0" aria-pressed="${!d.takeout}">매장에서</button>
+        <button class="chip" data-to="1" aria-pressed="${d.takeout}" ${it.takeout?"":'disabled style="opacity:.35"'}>
+          테이크아웃 −${MENU_DATA.options.takeoutDiscount.toLocaleString()}</button>
+      </div>
+      ${it.takeout?"":`<p class="hint">이 메뉴는 테이크아웃이 되지 않습니다.</p>`}
+    </div>
+
+    <div class="opt"><span class="lbl">수량</span>
+      <div class="qty">
+        <button data-qty="-1" aria-label="수량 줄이기">−</button>
+        <span>${d.qty}</span>
+        <button data-qty="1" aria-label="수량 늘리기">+</button>
+      </div>
+    </div>
+
+    <div class="total-line"><span>합계</span><b>${won(unit*d.qty)}</b></div>
+    <button class="btn amber lg" style="width:100%" data-add ${it.active?"":"disabled"}>
+      ${it.active?"주문표에 담기":"품절"}
+    </button>
+    ${it.choose && !d.choice ? `<p class="hint">${esc(it.choose.label)}을(를) 먼저 골라주세요.</p>` : ""}
+  </div>`;
+}
+
+/* ── 그 외 메뉴 ─────────────────────────────────────────── */
+function viewMenu(){
+  const cats = MENU_DATA.menu.map(c=>{
+    const items = c.items.map(ov).map(i=>`
+      <button class="item ${i.active?"":"off"}" data-item="${i.id}">
+        <span><span class="nm">${esc(i.name)}</span>
+          <span class="ds">${i.desc?esc(i.desc):""}${i.choose?` · ${esc(i.choose.options.join(" / "))}`:""}</span></span>
+        <span class="pr">${i.active?won(i.price):"품절"}</span>
+      </button>`).join("");
+    return `<section class="cat"><h3>${esc(c.cat)}</h3>
+      ${c.note?`<p class="cat-note">${esc(c.note)}</p>`:""}
+      <div class="list">${items}</div></section>`;
+  }).join("");
+
+  const it = state.draft ? findAny(state.draft.id) : null;
+  return `
+  <h1 class="page">그 외 메뉴</h1>
+  <p class="page-sub">커피 외에 차·음료·디저트도 있습니다.</p>
+  ${it ? `<div style="max-width:420px;margin-bottom:28px">
+      <div class="eyebrow" style="margin-bottom:8px">선택한 메뉴</div>
+      <h2 class="serif" style="font-weight:400;font-size:24px;margin:0 0 14px">${esc(it.name)}</h2>
+      ${orderBox(it,state.draft)}
+      <button class="btn ghost sm" style="margin-top:12px" data-cancel>선택 취소</button>
+    </div>` : ""}
+  ${cats}`;
+}
+
+/* ── 주문표 ─────────────────────────────────────────────── */
+function viewCart(){
+  if(state.cart.length===0) return `
+    <div class="cart-empty">
+      <div class="big">아직 담긴 메뉴가 없습니다</div>
+      <p style="margin-bottom:24px">원두를 먼저 골라보시겠어요?</p>
+      <button class="btn" data-go="beans">원두 고르기</button>
+    </div>`;
+
+  const rows = state.cart.map((l,i)=>{
+    const it=findAny(l.id);
+    const opts=[];
+    if(l.choice) opts.push(l.choice);
+    if(it.ice) opts.push(l.ice?"차갑게":"따뜻하게");
+    opts.push(l.takeout?"테이크아웃":"매장");
+    return `<div class="cart-row">
+      <div class="grow">
+        <div class="nm">${esc(it.name)}</div>
+        <div class="op">${opts.map(esc).join(" · ")}</div>
+        <div class="qty" style="margin-top:10px">
+          <button data-cq="${i}|-1" aria-label="수량 줄이기">−</button><span>${l.qty}</span>
+          <button data-cq="${i}|1" aria-label="수량 늘리기">+</button>
+        </div>
+      </div>
+      <div class="pr">${won(lineTotal(l))}
+        ${l.ice?`<small>차가운 +${MENU_DATA.options.icePrice}</small>`:""}
+        ${l.takeout?`<small>테이크아웃 −${MENU_DATA.options.takeoutDiscount.toLocaleString()}</small>`:""}
+      </div>
+      <button class="btn ghost sm" data-del="${i}">삭제</button>
+    </div>`;
+  }).join("");
+
+  return `
+  <h1 class="page">주문표</h1>
+  <p class="page-sub">확인 후 아래 버튼을 누르고, 화면을 직원에게 보여주세요.</p>
+  <div style="max-width:760px">
+    ${rows}
+    <div class="sum-box">
+      <div class="kv" style="border:0"><span>총 ${cartCount()}개</span><b style="font-size:26px">${won(cartTotal())}</b></div>
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn amber lg" style="flex:1;min-width:200px" data-order>주문 확정하기</button>
+        <button class="btn ghost lg" data-go="beans">더 담기</button>
+      </div>
+      <p class="hint">결제는 카운터에서 도와드립니다.</p>
+    </div>
+  </div>`;
+}
+
+/* ── 주문 완료 ──────────────────────────────────────────── */
+function viewDone(){
+  const o=state.order; if(!o) return "";
+  return `
+  <div class="ticket">
+    <div class="eyebrow" style="text-align:center;margin-bottom:8px">주문 번호</div>
+    <div class="no">${o.no}</div>
+    <div class="no-lbl eyebrow">이 화면을 직원에게 보여주세요</div>
+    <hr class="hr" style="margin:0 0 12px">
+    ${o.lines.map(l=>{
+      const it=findAny(l.id); const op=[];
+      if(l.choice)op.push(l.choice);
+      if(it.ice)op.push(l.ice?"차갑게":"따뜻하게");
+      op.push(l.takeout?"테이크아웃":"매장");
+      return `<div class="tr"><span>${esc(it.name)} <span class="op">${op.map(esc).join(" · ")}</span></span>
+        <span class="mono">${l.qty}개 · ${won(lineTotal(l))}</span></div>`;
+    }).join("")}
+    <div class="tr" style="border:0;margin-top:12px;padding-top:14px;border-top:1.5px solid var(--line)">
+      <b style="font-size:17px">합계</b><b class="mono" style="font-size:24px">${won(o.total)}</b></div>
+    <button class="btn lg" style="width:100%;margin-top:24px" data-neworder>새 주문 시작</button>
+  </div>`;
+}
+
+/* ── 관리자 ─────────────────────────────────────────────── */
+function viewAdmin(){
+  if(!state.adminOK) return `
+    <div class="pin-wrap">
+      <div class="eyebrow" style="margin-bottom:14px">관리자</div>
+      <h2 class="serif" style="font-weight:400;margin:0 0 20px">PIN을 입력하세요</h2>
+      <input id="pin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••">
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn" style="flex:1" data-pinok>확인</button>
+        <button class="btn ghost" data-go="home">나가기</button>
+      </div>
+    </div>`;
+
+  const beanRows = MENU_DATA.beans.map(b0=>{
+    const b=ov(b0);
+    return `<div class="a-sec" style="padding:18px">
+      <div class="a-row" style="border:0;padding-top:0">
+        <div class="t">${esc(b.name)}<small>${esc(b.country)} · ${esc(b.process)} · ${esc(b.altitudeText)}</small></div>
+        <input type="number" step="100" data-price="${b.id}" value="${b.price}">
+        <label class="sw"><input type="checkbox" data-active="${b.id}" ${b.active?"checked":""}>판매</label>
+      </div>
+      <div class="fld" style="margin:12px 0 0">
+        <label>사장님 한마디 — 이 원두 상세 화면에 표시됩니다</label>
+        <textarea data-note="${b.id}" placeholder="예) 오늘 로스팅한 겁니다. 사이폰으로 내리면 향이 훨씬 살아요.">${esc(b.ownerNote||"")}</textarea>
+      </div>
+    </div>`;
+  }).join("");
+
+  const menuRows = MENU_DATA.menu.map(c=>`
+    <div style="margin-bottom:8px"><div class="eyebrow" style="margin:16px 0 6px">${esc(c.cat)}</div>
+    ${c.items.map(i0=>{const i=ov(i0);return `<div class="a-row">
+      <div class="t">${esc(i.name)}</div>
+      <input type="number" step="100" data-price="${i.id}" value="${i.price}">
+      <label class="sw"><input type="checkbox" data-active="${i.id}" ${i.active?"checked":""}>판매</label>
+    </div>`}).join("")}</div>`).join("");
+
+  return `
+  <button class="back" data-go="home">← 손님 화면으로</button>
+  <h1 class="page">관리자</h1>
+  <p class="page-sub">바꾼 내용은 <b>저장</b>을 눌러야 반영됩니다.</p>
+  <div class="admin-note">
+    ${Store.persistent
+      ? "변경 내용은 이 아이패드(브라우저)에 저장됩니다. 기기를 바꾸거나 초기화할 때를 대비해 아래 <b>설정 내보내기</b>로 백업해두세요."
+      : "⚠ 이 환경에서는 브라우저 저장이 막혀 있어 새로고침하면 초기화됩니다. 아래 <b>설정 내보내기</b>로 백업한 뒤, 다음에 <b>불러오기</b>로 복원하세요."}
+  </div>
+
+  <div class="a-sec">
+    <h3>사장님 한마디 (첫 화면)</h3>
+    <p class="sub">손님이 처음 보는 문구입니다. 매일 한 줄씩 바꾸시면 좋습니다.</p>
+    <div class="fld"><textarea id="a-banner" placeholder="오늘의 인사말이나 추천을 적어주세요.">${esc(S.banner)}</textarea></div>
+    <div class="fld"><label>오늘의 원두</label>
+      <select id="a-pick">${allBeans().map(b=>`<option value="${b.id}" ${S.todayPick===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+    </div>
+  </div>
+
+  <div class="a-sec">
+    <h3>원두 — 가격 · 품절 · 한마디</h3>
+    <p class="sub">품절인 원두는 손님 화면에서 흐리게 표시되고 담기가 막힙니다.</p>
+    ${beanRows}
+  </div>
+
+  <div class="a-sec">
+    <h3>그 외 메뉴 — 가격 · 품절</h3>
+    ${menuRows}
+  </div>
+
+  <div class="a-sec">
+    <h3>키오스크 설정</h3>
+    <div class="fld"><label class="sw"><input type="checkbox" id="a-idle" ${S.idleReset?"checked":""}>
+      손님이 자리를 뜨면 첫 화면으로 자동 복귀</label></div>
+    <div class="fld"><label>대기 시간(초)</label><input type="number" id="a-idlesec" min="30" step="10" value="${S.idleSec}"></div>
+    <div class="fld"><label>관리자 PIN</label><input type="text" id="a-pin" inputmode="numeric" maxlength="8" value="${esc(S.pin)}">
+      <p class="hint">관리자 화면은 왼쪽 위 <b>STAIR</b> 로고를 5번 연속 눌러 들어옵니다.</p></div>
+  </div>
+
+  <div class="a-sec">
+    <h3>설정 내보내기 · 불러오기</h3>
+    <p class="sub">아래 글상자의 내용을 복사해 메모장에 보관하세요. 새 기기에서는 붙여넣고 불러오기를 누르면 그대로 복원됩니다.</p>
+    <div class="fld"><textarea id="a-json" style="min-height:130px;font-family:var(--f-num);font-size:12px">${esc(JSON.stringify(S))}</textarea></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" data-import>불러오기</button>
+      <button class="btn ghost sm" data-download>파일로 저장</button>
+      <button class="btn ghost sm" data-reset-all style="color:var(--danger);border-color:var(--danger)">전체 초기화</button>
+    </div>
+  </div>
+
+  <div style="position:sticky;bottom:20px;display:flex;gap:10px;padding-top:10px">
+    <button class="btn amber lg" style="flex:1" data-save>저장</button>
+    <button class="btn ghost lg" data-go="home">손님 화면으로</button>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ⑥  이 벤 트
+   ═══════════════════════════════════════════════════════════════════════ */
+function go(v){ state.view=v; if(v!=="bean"&&v!=="menu") state.draft=null; render(); }
+
+function newDraft(it){
+  return { id:it.id, qty:1, ice:false, takeout:false,
+           choice: it.choose ? null : undefined };
+}
+
+function bind(){
+  const app=$("#app");
+
+  /* 로고 5번 → 관리자 */
+  const brand=$("#brand");
+  if(brand) brand.onclick=()=>{
+    state.logoTaps++;
+    clearTimeout(state.logoTimer);
+    state.logoTimer=setTimeout(()=>state.logoTaps=0,1200);
+    if(state.logoTaps>=5){ state.logoTaps=0; state.view="admin"; render(); }
+    else if(state.logoTaps===1){ go("home"); }
+  };
+
+  app.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+  app.querySelectorAll("[data-clear]").forEach(b=>b.onclick=()=>{ state.cart=[]; render(); toast("주문표를 비웠습니다"); });
+
+  app.querySelectorAll("[data-bean]").forEach(b=>b.onclick=()=>{
+    state.beanId=b.dataset.bean; state.draft=newDraft(bean(b.dataset.bean)); go("bean");
+  });
+  app.querySelectorAll("[data-item]").forEach(b=>b.onclick=()=>{
+    const it=findAny(b.dataset.item); state.draft=newDraft(it); render();
+  });
+  app.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=()=>{ state.draft=null; render(); });
+
+  app.querySelectorAll("[data-mood]").forEach(b=>b.onclick=()=>{
+    state.mood = state.mood===b.dataset.mood ? null : b.dataset.mood;
+    state.taste=null; go("beans");
+  });
+  app.querySelectorAll("[data-taste]").forEach(b=>b.onclick=()=>{
+    state.taste = state.taste===b.dataset.taste ? null : b.dataset.taste; state.mood=null; render();
+  });
+  app.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>{ state.mood=null;state.taste=null; render(); });
+  app.querySelectorAll("[data-toggleview]").forEach(b=>b.onclick=()=>{ state.stairView=!state.stairView; render(); });
+
+  /* 옵션 */
+  const d=state.draft;
+  app.querySelectorAll("[data-choose]").forEach(b=>b.onclick=()=>{ d.choice=b.dataset.choose; render(); });
+  app.querySelectorAll("[data-ice]").forEach(b=>b.onclick=()=>{ d.ice=b.dataset.ice==="1"; render(); });
+  app.querySelectorAll("[data-to]").forEach(b=>b.onclick=()=>{ d.takeout=b.dataset.to==="1"; render(); });
+  app.querySelectorAll("[data-qty]").forEach(b=>b.onclick=()=>{
+    d.qty=Math.max(1,Math.min(20,d.qty+Number(b.dataset.qty))); render();
+  });
+  app.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{
+    const it=findAny(d.id);
+    if(it.choose && !d.choice){ toast(it.choose.label+"을(를) 골라주세요"); return; }
+    const same=state.cart.find(l=>l.id===d.id&&l.ice===d.ice&&l.takeout===d.takeout&&l.choice===d.choice);
+    if(same) same.qty+=d.qty; else state.cart.push(Object.assign({},d));
+    state.draft = state.view==="bean" ? newDraft(it) : null;
+    toast(it.name+" 담았습니다"); render();
+  });
+
+  /* 장바구니 */
+  app.querySelectorAll("[data-cq]").forEach(b=>b.onclick=()=>{
+    const [i,n]=b.dataset.cq.split("|").map(Number);
+    state.cart[i].qty=Math.max(1,Math.min(20,state.cart[i].qty+n)); render();
+  });
+  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    state.cart.splice(Number(b.dataset.del),1); render();
+  });
+  app.querySelectorAll("[data-order]").forEach(b=>b.onclick=()=>{
+    state.order={ no:String(Math.floor(Math.random()*900)+100), lines:state.cart.slice(), total:cartTotal() };
+    state.cart=[]; go("done");
+  });
+  app.querySelectorAll("[data-neworder]").forEach(b=>b.onclick=()=>{ state.order=null; go("home"); });
+
+  /* 관리자 */
+  app.querySelectorAll("[data-pinok]").forEach(b=>b.onclick=()=>{
+    if($("#pin").value===S.pin){ state.adminOK=true; render(); }
+    else toast("PIN이 맞지 않습니다");
+  });
+  const pin=$("#pin"); if(pin){ pin.focus(); pin.onkeydown=e=>{ if(e.key==="Enter") app.querySelector("[data-pinok]").click(); }; }
+
+  app.querySelectorAll("[data-save]").forEach(b=>b.onclick=()=>{
+    S.banner=$("#a-banner").value;
+    S.todayPick=$("#a-pick").value;
+    S.idleReset=$("#a-idle").checked;
+    S.idleSec=Math.max(30,Number($("#a-idlesec").value)||150);
+    S.pin=($("#a-pin").value||"2025").trim();
+    app.querySelectorAll("[data-price]").forEach(inp=>{
+      const id=inp.dataset.price, v=Number(inp.value);
+      if(!isNaN(v)&&v>=0){ S.overrides[id]=S.overrides[id]||{}; S.overrides[id].price=v; }
+    });
+    app.querySelectorAll("[data-active]").forEach(inp=>{
+      const id=inp.dataset.active; S.overrides[id]=S.overrides[id]||{}; S.overrides[id].active=inp.checked;
+    });
+    app.querySelectorAll("[data-note]").forEach(t=>{
+      const id=t.dataset.note; S.overrides[id]=S.overrides[id]||{}; S.overrides[id].ownerNote=t.value.trim();
+    });
+    persist(); render();
+    toast(Store.persistent?"저장했습니다":"적용했습니다 (이 환경은 새로고침 시 초기화)");
+  });
+  app.querySelectorAll("[data-import]").forEach(b=>b.onclick=()=>{
+    try{
+      const o=JSON.parse($("#a-json").value);
+      S=Object.assign({},DEFAULT_SETTINGS,o); S.overrides=S.overrides||{};
+      persist(); render(); toast("불러왔습니다");
+    }catch(e){ toast("형식이 올바르지 않습니다"); }
+  });
+  app.querySelectorAll("[data-download]").forEach(b=>b.onclick=()=>{
+    const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="stair-설정-"+new Date().toISOString().slice(0,10)+".json";
+    a.click(); URL.revokeObjectURL(a.href); toast("파일로 저장했습니다");
+  });
+  app.querySelectorAll("[data-reset-all]").forEach(b=>b.onclick=()=>{
+    if(confirm("모든 설정을 처음 상태로 되돌립니다. 계속할까요?")){
+      S=JSON.parse(JSON.stringify(DEFAULT_SETTINGS)); persist(); render(); toast("초기화했습니다");
+    }
+  });
+}
+
+/* 키오스크 유휴 복귀 */
+let idleT=null;
+function resetIdle(){
+  clearTimeout(idleT);
+  if(!S.idleReset || state.view==="admin") return;
+  idleT=setTimeout(()=>{
+    if(state.view!=="home"||state.cart.length){ state.cart=[]; state.draft=null; state.order=null; go("home"); }
+  }, S.idleSec*1000);
+}
+["click","touchstart","keydown","scroll"].forEach(e=>
+  document.addEventListener(e,resetIdle,{passive:true}));
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ⑦  시 작
+   ═══════════════════════════════════════════════════════════════════════ */
+render();
+resetIdle();
+</script>
+</body>
+</html>
